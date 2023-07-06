@@ -7,6 +7,8 @@
 #include "CBullet.h"
 #include "Particles/ParticleSystem.h"
 #include "Sound/SoundCue.h"
+#include "Components/DecalComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
 
 ACRifle::ACRifle()
 {
@@ -31,6 +33,7 @@ ACRifle::ACRifle()
 	CHelpers::GetAsset(&ImpactParticle, "ParticleSystem'/Game/Particles_Rifle/Particles/VFX_Impact_Default.VFX_Impact_Default'");
 
 	CHelpers::GetAsset(&FireSound, "SoundCue'/Game/Sounds/S_RifleShoot_Cue.S_RifleShoot_Cue'");
+	CHelpers::GetAsset(&Decal, "Material'/Game/Materials/M_Decal.M_Decal'");
 }
 
 ACRifle* ACRifle::Spawn(UWorld* InWorld, ACharacter* InOwner)
@@ -128,6 +131,9 @@ void ACRifle::Begin_Equip()
 void ACRifle::End_Equip()
 {
 	bEquipping = false;
+
+	OwnerCharacter->bUseControllerRotationYaw = true;
+	OwnerCharacter->GetCharacterMovement()->bOrientRotationToMovement = false;
 }
 
 void ACRifle::Unequip()
@@ -146,24 +152,40 @@ void ACRifle::Begin_Unequip()
 
 void ACRifle::End_Unequip()
 {
-	bEquipped = true;
+	bEquipping = false;
+
+	OwnerCharacter->bUseControllerRotationYaw = false;
+	OwnerCharacter->GetCharacterMovement()->bOrientRotationToMovement = true;
 }
 
 void ACRifle::Begin_Fire()
 {
 	CheckFalse(bEquipped);
 	CheckTrue(bEquipping);
-	CheckFalse(bAiming);
+	//CheckFalse(bAiming);
 	CheckTrue(bFiring);
 
 	bFiring = true;
 
+	CurrentPitch = 0.f;
+
+	// 연사모드
+	if (bRapid == true)
+	{
+		GetWorld()->GetTimerManager().SetTimer(RapidTimer, this, &ACRifle::Firing, 0.1f, true);
+		return;
+	}
+
+	// 단발모드
 	Firing();
 }
 
 void ACRifle::End_Fire()
 {
 	bFiring = false;
+
+	if (bRapid == true && RapidTimer.IsValid())
+		GetWorld()->GetTimerManager().ClearTimer(RapidTimer);
 }
 
 void ACRifle::Firing()
@@ -205,6 +227,39 @@ void ACRifle::Firing()
 	UGameplayStatics::SpawnEmitterAttached(MuzzleParticle, Mesh, "MuzzleFlash");
 	UGameplayStatics::SpawnEmitterAttached(EjectParticle, Mesh, "EjectBullet");
 	UGameplayStatics::PlaySoundAtLocation(GetWorld(), FireSound, muzzleLocation);
+
+
+	// Decal & impact particle
+	FHitResult hitResult;
+	FCollisionQueryParams param;
+	param.AddIgnoredActor(this);
+	param.AddIgnoredActor(OwnerCharacter);
+
+	if (GetWorld()->LineTraceSingleByChannel
+	(
+		hitResult,
+		start,
+		end,
+		ECollisionChannel::ECC_Visibility,
+		param
+	))
+	{
+		FRotator impactRotator = hitResult.ImpactNormal.Rotation();
+
+		UDecalComponent* decal = UGameplayStatics::SpawnDecalAtLocation(GetWorld(), Decal, FVector(5, 5, 5), hitResult.Location, impactRotator, 10.f);
+		decal->SetFadeScreenSize(0);
+
+		UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), ImpactParticle, hitResult.Location, impactRotator, true);
+	}
+
+	// Additive Pitch
+	CurrentPitch -= PitchSpeed * GetWorld()->GetDeltaSeconds();
+
+	if (CurrentPitch > -PitchSpeed)
+	{
+		OwnerCharacter->AddControllerPitchInput(CurrentPitch);
+		CLog::Print(CurrentPitch, 1);
+	}
 }
 
 
