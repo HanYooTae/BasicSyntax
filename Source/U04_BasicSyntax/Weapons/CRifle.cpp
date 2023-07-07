@@ -57,6 +57,8 @@ void ACRifle::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	//CLog::Print(bFiring, 1);
+
 	//CheckFalse(bAiming);
 
 	// Get Aim Info
@@ -151,6 +153,8 @@ void ACRifle::Begin_Unequip()
 {
 	bEquipped = false;
 	AttachToComponent(OwnerCharacter->GetMesh(), FAttachmentTransformRules(EAttachmentRule::KeepRelative, true), HolsterSocket);
+
+	
 }
 
 void ACRifle::End_Unequip()
@@ -261,7 +265,7 @@ void ACRifle::Firing()
 	if (CurrentPitch > -PitchSpeed)
 	{
 		OwnerCharacter->AddControllerPitchInput(CurrentPitch);
-		CLog::Print(CurrentPitch, 1);
+		//CLog::Print(CurrentPitch, 1);
 	}
 }
 
