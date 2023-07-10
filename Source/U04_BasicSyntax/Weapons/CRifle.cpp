@@ -54,7 +54,7 @@ void ACRifle::BeginPlay()
 }
 
 void ACRifle::Tick(float DeltaTime)
-{
+{//
 	Super::Tick(DeltaTime);
 
 	//CLog::Print(bFiring, 1);
